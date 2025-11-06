@@ -174,3 +174,111 @@ rows = df.collect()
 for row in rows:
     print(row)
 ```
+
+## Transformations and Actions
+
+### Understanding Transformations and Actions in PySpark
+- **Transformations**: Operations on RDDs or DataFrames that produce a new RDD or DataFrame. They are **lazy**, meaning they are not executed immediately but only when an action is called.
+- **Actions**: Operations that trigger execution and return a result to the driver program or write data to external storage.
+
+###  Examples of Common Transformations and Actions
+**Transformations**:
+- `map()`: Applies a function to each element.
+- `filter()`: Filters elements based on a condition.
+- `flatMap()`: Maps and flattens the result.
+- `distinct()`: Returns distinct elements.
+- `union()`: Combines two RDDs.
+- `join()`: Joins two RDDs by key.
+
+**Actions**:
+- `collect()`: Returns all elements to the driver.
+- `count()`: Counts the number of elements.
+- `take(n)`: Returns the first `n` elements.
+- `reduce()`: Reduces elements using a function.
+- `saveAsTextFile()`: Saves RDD to an external storage.
+
+---
+
+## Revision on Spark RDDs (Resilient Distributed Datasets)
+
+### Overview of RDDs in PySpark
+- RDD is the fundamental data structure in Spark, representing an **immutable distributed collection of objects**.
+- Key features:
+  - Fault-tolerant
+  - Lazy evaluated
+  - Can be cached or persisted
+  - Supports **parallel operations**.
+
+###  Differences Between RDDs and DataFrames
+| Feature            | RDD                             | DataFrame                        |
+|-------------------|---------------------------------|---------------------------------|
+| Type               | Low-level API                   | High-level API                  |
+| Schema             | No schema, only raw objects     | Schema-based, tabular           |
+| Performance        | Slower due to lack of optimization | Faster due to Catalyst optimizer |
+| Ease of Use        | Complex                         | Easy, SQL-like syntax           |
+
+---
+
+## PySpark Data Structures
+- **RDD**: Distributed collection of objects.
+- **DataFrame**: Distributed collection of data organized into named columns.
+- **Dataset**: Type-safe, object-oriented extension of DataFrame (mainly in Scala/Java).
+
+---
+
+## SparkContext
+
+###  The Role of SparkContext in PySpark Applications
+- The entry point to Spark functionality.
+- Establishes a connection to a Spark cluster.
+- Manages resources, configuration, and job execution.
+- Every Spark application needs a `SparkContext`.
+
+### Creating and Configuring SparkContext
+```python
+from pyspark import SparkContext
+
+# Create SparkContext
+sc = SparkContext(appName="MyPySparkApp")
+
+# Set configuration (optional)
+sc.setLogLevel("WARN")
+```
+## PySpark DataFrames
+### Introduction to PySpark DataFrames
+
+DataFrame is a distributed collection of data organized into named columns.
+
+Supports SQL queries, transformations, and actions.
+
+## Operations on DataFrames
+
+Filtering: df.filter(df['age'] > 25)
+
+Selecting: df.select('name', 'salary')
+
+Aggregating: df.groupBy('department').agg({'salary':'avg'})
+
+Adding Columns: df.withColumn('new_col', df['salary']*2)
+
+## PySpark SQL
+### Integration of SQL Queries with PySpark
+
+PySpark allows SQL queries on DataFrames.
+
+Provides flexibility to use familiar SQL syntax.
+
+### Registering DataFrames as Temporary SQL Tables
+### Register DataFrame as temp table
+```pyspark
+df.createOrReplaceTempView("employees")
+````
+# Execute SQL query
+```pyspark
+result = spark.sql("SELECT name, salary FROM employees WHERE age > 25")
+result.show()
+```
+
+Temporary views are session-scoped.
+
+Useful for complex SQL queries on DataFrames.
