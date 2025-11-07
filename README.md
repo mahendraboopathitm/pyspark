@@ -282,3 +282,173 @@ result.show()
 Temporary views are session-scoped.
 
 Useful for complex SQL queries on DataFrames.
+
+
+#  Persist and Cache in PySpark
+
+##  Overview
+
+In PySpark, transformations are **lazy** — meaning data isn’t computed until an **action** (like `count()` or `show()`) is called.  
+If you reuse the same RDD or DataFrame multiple times, Spark will **recompute** it each time, which can be expensive.  
+
+To **avoid recomputation** and **improve performance**, you can **cache** or **persist** the dataset in memory (and optionally on disk).
+
+---
+
+##  `cache()` — Store in Memory Only
+
+###  Definition:
+`cache()` stores the RDD or DataFrame **in memory only** (`MEMORY_ONLY` storage level).
+
+###  Syntax:
+```python
+df.cache()
+```
+
+###  Example:
+```python
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col
+
+spark = SparkSession.builder.appName("CacheExample").getOrCreate()
+
+data = [
+    (1, "Alice", 4000),
+    (2, "Bob", 5000),
+    (3, "Charlie", 4500),
+    (4, "David", 7000)
+]
+columns = ["ID", "Name", "Salary"]
+
+df = spark.createDataFrame(data, columns)
+
+# Cache the DataFrame
+df.cache()
+
+# Trigger an action to store data in memory
+df.show()
+
+# Reuse it (no recomputation now)
+high_salary = df.filter(col("Salary") > 4500)
+high_salary.show()
+```
+
+###  Notes:
+- The first action (`show()`) will **compute** and **cache** the DataFrame.
+- The next actions will read it directly from memory, improving performance.
+
+---
+
+##  `persist()` — Store with a Custom Storage Level
+
+###  Definition:
+`persist()` allows you to **choose where and how** to store your dataset.
+
+###  Syntax:
+```python
+df.persist(storageLevel)
+```
+
+###  Storage Levels:
+| Storage Level | Description |
+|----------------|--------------|
+| `MEMORY_ONLY` | Default for `cache()` — keeps data in memory only. |
+| `MEMORY_AND_DISK` | Keeps data in memory; spills to disk if not enough memory. |
+| `DISK_ONLY` | Stores data only on disk. |
+| `MEMORY_ONLY_SER` | Stores serialized objects in memory (saves space). |
+| `MEMORY_AND_DISK_SER` | Serialized and spills to disk if needed. |
+| `OFF_HEAP` | Stores data in off-heap memory (requires configuration). |
+
+### Example:
+```python
+from pyspark import StorageLevel
+
+# Persist DataFrame with MEMORY_AND_DISK
+df.persist(StorageLevel.MEMORY_AND_DISK)
+
+# Trigger caching
+df.count()
+
+# Reuse without recomputation
+df.filter(col("Salary") > 4500).show()
+```
+
+---
+
+##  Difference Between `cache()` and `persist()`
+
+| Feature | `cache()` | `persist()` |
+|----------|------------|-------------|
+| Storage level | MEMORY_ONLY | Customizable (e.g., MEMORY_AND_DISK, DISK_ONLY, etc.) |
+| Flexibility | Less | More |
+| Usage | Simple and quick caching | When data is large or memory is limited |
+| Example | `df.cache()` | `df.persist(StorageLevel.MEMORY_AND_DISK)` |
+
+---
+
+##  Removing Cached/Persisted Data
+
+You can uncache or remove persisted data to free up memory:
+
+```python
+df.unpersist()
+```
+
+---
+
+##  When to Use
+
+ **Use `cache()`** when:
+- Dataset fits easily in memory.
+- It is reused multiple times in your job.
+
+ **Use `persist()`** when:
+- Dataset is **large** or **partially reused**.
+- You need a **custom storage level** (e.g., `MEMORY_AND_DISK`).
+
+---
+
+## Performance Tip
+
+Always perform a **lazy action** (like `count()`, `show()`, or `collect()`) after calling `cache()` or `persist()` to **materialize** the dataset — otherwise, it won’t actually be stored yet.
+
+```python
+df.cache()
+df.count()   # triggers computation and stores data
+```
+
+---
+
+##  Example Summary Code
+
+```python
+from pyspark.sql import SparkSession
+from pyspark import StorageLevel
+from pyspark.sql.functions import col
+
+spark = SparkSession.builder.appName("CachePersistExample").getOrCreate()
+
+data = [
+    (101, "Alice", "IT", 50000),
+    (102, "Bob", "HR", 40000),
+    (103, "Charlie", "Finance", 55000),
+    (104, "David", "IT", 60000)
+]
+columns = ["ID", "Name", "Dept", "Salary"]
+
+df = spark.createDataFrame(data, columns)
+
+# Cache example
+df.cache()
+df.count()
+
+# Persist example
+df.persist(StorageLevel.MEMORY_AND_DISK)
+df.show()
+
+# Unpersist
+df.unpersist()
+```
+
+---
+
