@@ -452,3 +452,405 @@ df.unpersist()
 
 ---
 
+# PySpark DataFrame Practice — General & String Functions
+## Setup
+```python
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import sum, avg, col, min, max
+from pyspark.sql.functions import upper, lower, trim, ltrim, rtrim, substring, substring_index, split, repeat, rpad, lpad, regexp_replace, regexp_extract, length, instr, initcap
+
+spark = SparkSession.builder.appName("func").getOrCreate()
+
+# Dataset 1 — General DataFrame Functions
+data = [
+    (101, "Alice", "HR", 40000, 29),
+    (102, "Bob", "IT", 55000, 34),
+    (103, "Charlie", "Finance", 48000, 28),
+    (104, "David", "IT", 61000, 41),
+    (105, "Eve", "HR", 39000, 25),
+    (106, "Frank", "Finance", 53000, 38)
+]
+
+rdd = spark.sparkContext.parallelize(data)
+df = rdd.toDF(["id", "name", "dept", "sal", "age"])
+```
+# General DataFrame Functions
+## show()
+
+### Displays the entire DataFrame.
+```
+df.show()
+```
+
+Output:
+```
++---+-------+-------+-----+---+
+|id |name   |dept   |sal  |age|
++---+-------+-------+-----+---+
+|101|Alice  |HR     |40000|29 |
+|102|Bob    |IT     |55000|34 |
+|103|Charlie|Finance|48000|28 |
+|104|David  |IT     |61000|41 |
+|105|Eve    |HR     |39000|25 |
+|106|Frank  |Finance|53000|38 |
++---+-------+-------+-----+---+
+```
+## collect()
+
+### Returns all rows as a list of Row objects.
+```
+df.collect()
+
+```
+Output:
+```
+[Row(id=101, name='Alice', dept='HR', sal=40000, age=29), ...]
+```
+### take(n)
+
+### Takes the first n rows.
+```
+df.take(2)
+```
+
+Output:
+```
+[Row(id=101, name='Alice', dept='HR', sal=40000, age=29),
+ Row(id=102, name='Bob', dept='IT', sal=55000, age=34)]
+```
+### printSchema()
+
+### Displays column structure.
+```
+df.printSchema()
+```
+
+Output:
+```
+root
+ |-- id: long (nullable = true)
+ |-- name: string (nullable = true)
+ |-- dept: string (nullable = true)
+ |-- sal: long (nullable = true)
+ |-- age: long (nullable = true)
+```
+## count()
+
+### Counts total rows.
+```
+df.count()
+
+```
+### Output: 6
+
+## select()
+
+### Selects specific columns.
+```
+df.select("id", "name").show()
+```
+### filter() / where()
+
+### Filters based on conditions.
+```
+df.filter(col("age") > 30).show()
+df.where(col("dept") == "IT").show()
+```
+### between()
+
+### Selects rows between a range.
+```
+df.filter(col("sal").between(40000, 55000)).show()
+```
+### sort()
+
+### Sorts data in ascending/descending order.
+```
+df.sort(col("sal").desc()).show()
+```
+### describe()
+
+### Gives summary stats.
+```
+df.describe().show()
+```
+### columns
+
+### Shows column names.
+```
+df.columns
+```
+
+Output:
+```
+['id', 'name', 'dept', 'sal', 'age']
+```
+# Dataset 2 — String Functions
+```
+data = [
+    (1, "  alice  ", "HR,Admin", "Alice123"),
+    (2, "bob", "IT,Support", "B@b_2025"),
+    (3, "  CHARLIE", "Finance,Audit", "Ch@rlie#99"),
+    (4, "DAVID  ", "IT,Security", "David!!"),
+    (5, "eve", "HR,Training", "EvE2024")
+]
+cols = ["ID", "Name", "Departments", "Username"]
+df = spark.createDataFrame(data, cols)
+```
+
+### upper()
+
+Purpose: Converts all characters in a string to uppercase.
+```
+df.select(upper(col("Name")).alias("Upper_Name")).show()
+```
+
+Output:
+```
+Upper_Name
+ALICE
+BOB
+CHARLIE
+DAVID
+EVE
+```
+### trim()
+
+Purpose: Removes leading and trailing spaces.
+```
+df.select(trim(col("Name")).alias("Trimmed_Name")).show()
+
+```
+Output:
+```
+Trimmed_Name
+alice
+bob
+CHARLIE
+DAVID
+eve`
+```
+### ltrim()
+
+Purpose: Removes leading (left) spaces.
+```
+df.select(ltrim(col("Name")).alias("LTrim_Name")).show()
+```
+
+Output:
+```
+LTrim_Name
+alice
+bob
+CHARLIE
+DAVID
+eve
+```
+### rtrim()
+
+Purpose: Removes trailing (right) spaces.
+```
+df.select(rtrim(col("Name")).alias("RTrim_Name")).show()
+```
+
+Output:
+```
+RTrim_Name
+alice
+bob
+CHARLIE
+DAVID
+eve
+```
+### substring_index()
+
+Purpose: Returns substring before a specific delimiter.
+```
+df.select(substring_index(col("Departments"), ",", 1).alias("Main_Dept")).show()
+
+```
+Output:
+```
+Main_Dept
+HR
+IT
+Finance
+IT
+HR
+```
+### substring()
+
+Purpose: Extracts part of a string based on position.
+```
+df.select(substring(col("Username"), 1, 5).alias("Sub_Username")).show()
+```
+
+Output:
+```
+Sub_Username
+Alice
+B@b_2
+Ch@rl
+David
+EvE20
+```
+### split()
+
+Purpose: Splits a string based on a delimiter.
+```
+df.select(split(col("Departments"), ",").alias("Split_Dept")).show(truncate=False)
+
+```
+Output:
+```
+Split_Dept
+[HR, Admin]
+[IT, Support]
+[Finance, Audit]
+[IT, Security]
+[HR, Training]
+```
+### repeat()
+
+Purpose: Repeats a string a specified number of times.
+```
+df.select(repeat(trim(col("Name")), 2).alias("Repeat_Name")).show()
+
+```
+Output:
+```
+Repeat_Name
+alicealice
+bobbob
+CHARLIECHARLIE
+DAVIDDAVID
+eveeve
+```
+### rpad()
+
+Purpose: Pads the string to the right with a specific character.
+```
+df.select(rpad(trim(col("Name")), 10, "*").alias("Rpad_Name")).show()
+```
+
+Output:
+```
+Rpad_Name
+alice*****
+bob*******
+CHARLIE***
+DAVID*****
+eve*******
+```
+### lpad()
+
+Purpose: Pads the string to the left with a specific character.
+```
+df.select(lpad(trim(col("Name")), 10, "#").alias("Lpad_Name")).show()
+```
+
+Output:
+```
+Lpad_Name
+#####alice
+#######bob
+###CHARLIE
+#####DAVID
+#######eve
+```
+### regexp_replace()
+
+Purpose: Replaces matching substrings using a regular expression.
+```
+df.select(regexp_replace(col("Username"), "[^a-zA-Z]", "").alias("Clean_Username")).show()
+
+```
+Output:
+```
+Clean_Username
+Alice
+Bb
+Chrlie
+David
+EvE
+```
+### lower()
+
+Purpose: Converts string to lowercase.
+```
+df.select(lower(col("Departments")).alias("Lower_Dept")).show()
+
+```
+Output:
+```
+Lower_Dept
+hr,admin
+it,support
+finance,audit
+it,security
+hr,training
+```
+### regexp_extract()
+
+Purpose: Extracts substring using a regular expression.
+```
+df.select(regexp_extract(col("Username"), r"[A-Za-z]+", 0).alias("Extracted_Text")).show()
+```
+
+Output:
+```
+Extracted_Text
+Alice
+B
+Ch
+David
+EvE
+```
+### length()
+
+Purpose: Returns length of the string.
+```
+df.select(length(trim(col("Name"))).alias("Name_Length")).show()
+
+```
+Output:
+```
+Name_Length
+5
+3
+7
+5
+3
+```
+### instr()
+
+Purpose: Returns the position of substring.
+```
+df.select(instr(col("Departments"), "IT").alias("IT_Position")).show()
+
+```
+Output:
+```
+IT_Position
+0
+1
+0
+1
+0
+```
+### initcap()
+
+Purpose: Converts the first letter of each word to uppercase.
+````
+df.select(initcap(lower(col("Departments"))).alias("Initcap_Dept")).show()
+````
+
+Output:
+```
+Initcap_Dept
+Hr,Admin
+It,Support
+Finance,Audit
+It,Security
+Hr,Training
+```
