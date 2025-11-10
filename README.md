@@ -854,3 +854,412 @@ Finance,Audit
 It,Security
 Hr,Training
 ```
+# PySpark Functions Documentation day-4
+
+This documentation covers various PySpark aggregate and date/time functions with examples and expected outputs.
+
+## 1. Numeric Functions
+
+### 1.1 SUM()
+
+```python
+from pyspark.sql.functions import sum
+
+# Sum of salaries
+df.agg(sum("sal").alias("total_sal")).show()
+```
+
+**Output:**
+
+```
++---------+
+|total_sal|
++---------+
+| 1868000 |
++---------+
+```
+
+### 1.2 AVG()
+
+```python
+from pyspark.sql.functions import avg, round
+
+# Average salary
+df.agg(round(avg("sal"),2).alias("avg_sal")).show()
+```
+
+**Output:**
+
+```
++-------+
+|avg_sal|
++-------+
+|62300.0|
++-------+
+```
+
+### 1.3 MIN()
+
+```python
+from pyspark.sql.functions import min
+
+# Minimum salary
+df.agg(min("sal").alias("min_sal")).show()
+```
+
+**Output:**
+
+```
++-------+
+|min_sal|
++-------+
+|45000  |
++-------+
+```
+
+### 1.4 MAX()
+
+```python
+from pyspark.sql.functions import max
+
+# Maximum salary
+df.agg(max("sal").alias("max_sal")).show()
+```
+
+**Output:**
+
+```
++-------+
+|max_sal|
++-------+
+|80000  |
++-------+
+```
+
+### 1.5 ROUND()
+
+```python
+from pyspark.sql.functions import round, avg
+
+# Rounded average salary
+df.agg(round(avg("sal"),2).alias("avg_sal_rounded")).show()
+```
+
+**Output:**
+
+```
++---------------+
+|avg_sal_rounded|
++---------------+
+|62300.0        |
++---------------+
+```
+
+### 1.6 ABS()
+
+```python
+from pyspark.sql.functions import abs, col
+
+# Absolute difference example
+df1 = df.withColumn("diff", abs(col("sal") - 60000))
+df1.select("Name", "diff").show(5)
+```
+
+**Output:**
+
+```
++-----+-----+
+| Name| diff|
++-----+-----+
+|Aarav| 8000|
+|Isha |1000 |
+|Rohan| 0   |
+|Meera|15000|
+|Dev  |15000|
++-----+-----+
+```
+
+## 2. Date and Time Functions
+
+### 2.1 CURRENT_DATE()
+
+```python
+from pyspark.sql.functions import current_date
+
+# Add current date
+df.select("Name", current_date().alias("today")).show(5)
+```
+
+**Output:**
+
+```
++-----+----------+
+|Name | today    |
++-----+----------+
+|Aarav|2025-11-10|
+|Isha |2025-11-10|
+|Rohan|2025-11-10|
+|Meera|2025-11-10|
+|Dev  |2025-11-10|
++-----+----------+
+```
+
+### 2.2 CURRENT_TIMESTAMP()
+
+```python
+from pyspark.sql.functions import current_timestamp
+
+# Add current timestamp
+df.select("Name", current_timestamp().alias("timestamp")).show(5)
+```
+
+**Output:**
+
+```
++-----+-----------------------+
+|Name | timestamp             |
++-----+-----------------------+
+|Aarav|2025-11-10 15:30:12.0 |
+|Isha |2025-11-10 15:30:12.0 |
+|Rohan|2025-11-10 15:30:12.0 |
+|Meera|2025-11-10 15:30:12.0 |
+|Dev  |2025-11-10 15:30:12.0 |
++-----+-----------------------+
+```
+
+### 2.3 DATE_ADD()
+
+```python
+from pyspark.sql.functions import date_add
+
+# Add 30 days to joining date
+df.select("Name", date_add("Joining_Timestamp", 30).alias("after_30_days")).show(5)
+```
+
+**Output:**
+
+```
++-----+------------+
+|Name | after_30_days|
++-----+------------+
+|Aarav|2021-06-09  |
+|Isha |2019-09-13  |
+|Rohan|2020-01-24  |
+|Meera|2022-03-31  |
+|Dev  |2023-11-11  |
++-----+------------+
+```
+
+### 2.4 DATEDIFF()
+
+```python
+from pyspark.sql.functions import datediff, current_date
+
+# Difference in days from current date
+df = df.withColumn("Record_Created_Date", current_date())
+df1 = df.select("Name", datediff("Joining_Timestamp", "Record_Created_Date").alias("date_difference"))
+df1 = df1.withColumn("date_difference", abs(col("date_difference")))
+df1.show(5)
+```
+
+**Output:**
+
+```
++-----+---------------+
+|Name | date_difference|
++-----+---------------+
+|Aarav| 1645          |
+|Isha | 2280          |
+|Rohan| 1781          |
+|Meera| 1350          |
+|Dev  | 760           |
++-----+---------------+
+```
+
+### 2.5 YEAR(), 2.6 MONTH(), 2.7 DAY()
+
+```python
+from pyspark.sql.functions import year, month, dayofmonth
+
+df.select("Name", year("Joining_Timestamp").alias("year"),
+          month("Joining_Timestamp").alias("month"),
+          dayofmonth("Joining_Timestamp").alias("day")).show(5)
+```
+
+**Output:**
+
+```
++-----+----+-----+---+
+|Name |year|month|day|
++-----+----+-----+---+
+|Aarav|2021|5    |10 |
+|Isha |2019|8    |14 |
+|Rohan|2020|12   |25 |
+|Meera|2022|3    |1  |
+|Dev  |2023|10   |12 |
++-----+----+-----+---+
+```
+
+### 2.8 TO_DATE() and 2.9 DATE_FORMAT()
+
+```python
+from pyspark.sql.functions import to_date, date_format
+
+# Convert string to date
+df.select("Name", to_date("Joining_Timestamp").alias("date_only")).show(5)
+
+# Format date
+df.select("Name", date_format("Joining_Timestamp", "dd-MM-yyyy").alias("change_format")).show(5)
+```
+
+**Output:**
+
+```
++-----+------------+
+|Name | change_format|
++-----+------------+
+|Aarav|10-05-2021  |
+|Isha |14-08-2019  |
+|Rohan|25-12-2020  |
+|Meera|01-03-2022  |
+|Dev  |12-10-2023  |
++-----+------------+
+```
+
+## 3. Aggregate Functions
+
+### 3.1 mean(), 3.2 avg()
+
+```python
+from pyspark.sql.functions import mean, avg, round
+
+# Mean / Avg
+df.agg(round(mean("sal"),2).alias("mean_sal"), round(avg("bonus"),2).alias("avg_bonus")).show()
+```
+
+**Output:**
+
+```
++---------+---------+
+|mean_sal |avg_bonus|
++---------+---------+
+|62300.0  |3376.67  |
++---------+---------+
+```
+
+### 3.3 collect_list()
+
+```python
+df.groupBy("dept").agg(collect_list("Name").alias("dept_vise_names")).show()
+```
+
+**Output:**
+
+```
++-------+--------------------+
+|dept   |dept_vise_names     |
++-------+--------------------+
+|IT     |[Isha, Dev, Tara...]|
+|Finance|[Rohan, Sneha, Vik...]|
+|Sales  |[Aarav, Kiran, Neh...]|
+|HR     |[Meera, Rahul, Nikh...]|
++-------+--------------------+
+```
+
+### 3.4 collect_set()
+
+```python
+df.groupBy("dept").agg(collect_set("reg").alias("dept_vise_reg")).show()
+```
+
+**Output:**
+
+```
++-------+----------+
+|dept   |dept_vise_reg|
++-------+----------+
+|IT     |[West, North]|
+|Finance|[South]      |
+|Sales  |[East]       |
+|HR     |[North]      |
++-------+----------+
+```
+
+### 3.5 countDistinct()
+
+```python
+df.groupBy("dept").agg(count_distinct("Name").alias("dept_vise_name_count")).show()
+```
+
+**Output:**
+
+```
++-------+------------------+
+|dept   |dept_vise_name_count|
++-------+------------------+
+|IT     |6                 |
+|Finance|8                 |
+|Sales  |7                 |
+|HR     |5                 |
++-------+------------------+
+```
+
+### 3.6 count()
+
+```python
+df.groupBy("dept").agg(count("Name").alias("dept_vise_count")).show()
+```
+
+**Output:**
+
+```
++-------+----------------+
+|dept   |dept_vise_count|
++-------+----------------+
+|IT     |6               |
+|Finance|8               |
+|Sales  |7               |
+|HR     |5               |
++-------+----------------+
+```
+
+### 3.7 first(), 3.8 last()
+
+```python
+df1=df.groupBy("dept").agg(first("Name").alias("dept_vise_firstname"), last("Name").alias("dept_vise_lastname"))
+df2=df.join(df1,on="dept").filter((df["Name"]==df1["dept_vise_firstname"]) | (df["Name"]==df1["dept_vise_lastname"]))
+df2.show()
+```
+
+**Output:**
+
+```
++-----+-------+-----+-----+-----+---+---+
+|id   |Name   |dept |sal  |bonus|reg|exp|
++-----+-------+-----+-----+-----+---+---+
+|1    |Aarav  |Sales|52000|4000 |East|5  |
+|16   |Aditi  |Sales|54000|2700 |East|5  |
+|2    |Isha   |IT   |70000|5000 |West|7  |
+|29   |Deepa  |IT   |74000|3400 |West|8  |
+|3    |Rohan  |Finance|60000|3000|South|6|
+|30   |Varun  |Finance|65000|2500|South|6|
+|4    |Meera  |HR   |45000|2000 |North|3  |
+|19   |Nikhil |HR   |47000|1800 |North|3  |
++-----+-------+-----+-----+-----+---+---+
+```
+
+### 3.9 max(), 3.10 min(), 3.11 sum()
+
+```python
+df.agg(max("sal").alias("max_sal"), min("sal").alias("min_sal"), sum("sal").alias("total_sal")).show()
+```
+
+**Output:**
+
+```
++-------+-------+---------+
+|max_sal|min_sal|total_sal|
++-------+-------+---------+
+|80000  |45000  |1868000  |
++-------+-------+---------+
+```
