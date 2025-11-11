@@ -1263,3 +1263,498 @@ df.agg(max("sal").alias("max_sal"), min("sal").alias("min_sal"), sum("sal").alia
 |80000  |45000  |1868000  |
 +-------+-------+---------+
 ```
+# day 5 documentation
+
+## PySpark Practice – Joins, Functions & Windows
+### Dataset Creation
+```PYTHON
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import *
+
+spark = SparkSession.builder.appName("practice").getOrCreate()
+
+data_emp = [
+    (1, "Aarav", 101, 45000.75),
+    (2, "Isha", 102, 60000.20),
+    (3, "Rohan", 101, 52000.60),
+    (4, "Meera", 103, 48000.40),
+    (5, "Arjun", 104, 75000.00),
+    (6, "Priya", 101, 50000.00),
+    (7, "Kiran", 102, 65000.90),
+    (8, "Diya", 105, 40000.50),
+    (9, "Manav", 106, 39000.25),
+    (10, "Sneha", 107, 47000.00),
+    (11, "Varun", 103, 58000.35),
+    (12, "Asha", 104, 72000.10),
+    (13, "Vivek", 105, 51000.00),
+    (14, "Riya", 106, 43000.70),
+    (15, "Neel", 108, 62000.55)
+]
+
+data_dept = [
+    (101, "HR", "Mumbai"),
+    (102, "IT", "Bangalore"),
+    (103, "Finance", "Pune"),
+    (104, "Marketing", "Delhi"),
+    (105, "Operations", "Chennai"),
+    (106, "Admin", "Hyderabad")
+]
+
+columns_emp = ["emp_id", "name", "dept_id", "salary"]
+columns_dept = ["dept_id", "dept_name", "location"]
+
+dF= spark.createDataFrame(data_emp, columns_emp)
+df1 = spark.createDataFrame(data_dept, columns_dept)
+```
+# 1. JOINS
+## 1.1 INNER JOIN
+```
+df.join(df1, "dept_id", "inner").show()
+
+
+Output:
+
++-------+------+-------+----------+----------+
+|dept_id|emp_id|name   |salary    |dept_name |
++-------+------+-------+----------+----------+
+|101    |1     |Aarav  |45000.75  |HR        |
+|101    |3     |Rohan  |52000.6   |HR        |
+|101    |6     |Priya  |50000.0   |HR        |
+|102    |2     |Isha   |60000.2   |IT        |
+|102    |7     |Kiran  |65000.9   |IT        |
+|103    |4     |Meera  |48000.4   |Finance   |
+|103    |11    |Varun  |58000.35  |Finance   |
+|104    |5     |Arjun  |75000.0   |Marketing |
+|104    |12    |Asha   |72000.1   |Marketing |
+|105    |8     |Diya   |40000.5   |Operations|
+|105    |13    |Vivek  |51000.0   |Operations|
+|106    |9     |Manav  |39000.25  |Admin     |
+|106    |14    |Riya   |43000.7   |Admin     |
++-------+------+-------+----------+----------+
+
+```
+### Explanation:
+Only employees whose dept_id matches a department appear here. Missing departments (107, 108) are excluded.
+
+# 1.2 LEFT JOIN
+```
+df.join(df1, "dept_id", "left").orderBy("emp_id").show()
+
+
+Output:
+
++-------+------+-------+----------+----------+
+|dept_id|emp_id|name   |salary    |dept_name |
++-------+------+-------+----------+----------+
+|101    |1     |Aarav  |45000.75  |HR        |
+|102    |2     |Isha   |60000.2   |IT        |
+|101    |3     |Rohan  |52000.6   |HR        |
+|103    |4     |Meera  |48000.4   |Finance   |
+|104    |5     |Arjun  |75000.0   |Marketing |
+|101    |6     |Priya  |50000.0   |HR        |
+|102    |7     |Kiran  |65000.9   |IT        |
+|105    |8     |Diya   |40000.5   |Operations|
+|106    |9     |Manav  |39000.25  |Admin     |
+|107    |10    |Sneha  |47000.0   |null      |
+|103    |11    |Varun  |58000.35  |Finance   |
+|104    |12    |Asha   |72000.1   |Marketing |
+|105    |13    |Vivek  |51000.0   |Operations|
+|106    |14    |Riya   |43000.7   |Admin     |
+|108    |15    |Neel   |62000.55  |null      |
++-------+------+-------+----------+----------+
+
+```
+### Explanation:
+All employees appear. Dept columns are null where no matching dept (107, 108).
+
+# 1.3 RIGHT JOIN
+```python
+df.join(df1, "dept_id", "right").show()
+
+
+Output:
+
++-------+------+-------+----------+----------+
+|dept_id|emp_id|name   |salary    |dept_name |
++-------+------+-------+----------+----------+
+|101    |1     |Aarav  |45000.75  |HR        |
+|102    |2     |Isha   |60000.2   |IT        |
+|103    |4     |Meera  |48000.4   |Finance   |
+|104    |5     |Arjun  |75000.0   |Marketing |
+|105    |8     |Diya   |40000.5   |Operations|
+|106    |9     |Manav  |39000.25  |Admin     |
++-------+------+-------+----------+----------+
+
+```
+# Explanation:
+All departments appear; missing employees are filled with null (if any dept has no employee).
+
+# 1.4 FULL OUTER JOIN
+```python
+df.join(df1, "dept_id", "outer").orderBy("emp_id").show()
+
+
+Output includes all matches, unmatched from both sides:
+
+|dept_id|emp_id|name|salary|dept_name|
+|101|1|Aarav|45000.75|HR|
+|102|2|Isha|60000.2|IT|
+|107|10|Sneha|47000.0|null|
+|108|15|Neel|62000.55|null|
+...
+
+```
+# Explanation:
+Returns all records — matched or unmatched from both sides.
+
+# 1.5 CROSS JOIN
+```python
+df.crossJoin(df1).show(5)
+
+
+Output (first 5 rows):
+
+|emp_id|name|dept_id|salary|dept_id|dept_name|location|
+|1|Aarav|101|45000.75|101|HR|Mumbai|
+|1|Aarav|101|45000.75|102|IT|Bangalore|
+|1|Aarav|101|45000.75|103|Finance|Pune|
+|1|Aarav|101|45000.75|104|Marketing|Delhi|
+|1|Aarav|101|45000.75|105|Operations|Chennai|
+
+```
+# Explanation:
+Cartesian product — every employee paired with every department.
+
+# 1.6 LEFT SEMI JOIN
+```
+dfpython.join(df1, "dept_id", "left_semi").show()
+
+
+Output:
+
++------+-------+-------+----------+
+|emp_id|name   |dept_id|salary    |
++------+-------+-------+----------+
+|1     |Aarav  |101    |45000.75  |
+|2     |Isha   |102    |60000.2   |
+|3     |Rohan  |101    |52000.6   |
+|4     |Meera  |103    |48000.4   |
+|5     |Arjun  |104    |75000.0   |
+|6     |Priya  |101    |50000.0   |
+|7     |Kiran  |102    |65000.9   |
+|8     |Diya   |105    |40000.5   |
+|9     |Manav  |106    |39000.25  |
+|11    |Varun  |103    |58000.35  |
+|12    |Asha   |104    |72000.1   |
+|13    |Vivek  |105    |51000.0   |
+|14    |Riya   |106    |43000.7   |
++------+-------+-------+----------+
+
+```
+# Explanation:
+Returns only employees having a matching department (like filter inner join, but returns only left columns).
+
+# 1.7 LEFT ANTI JOIN
+```python
+df.join(df1, "dept_id", "left_anti").show()
+
+
+Output:
+
++------+----+-------+------+
+|emp_id|name|dept_id|salary|
++------+----+-------+------+
+|10    |Sneha|107|47000.0|
+|15    |Neel |108|62000.55|
++------+----+-------+------+
+
+```
+# Explanation:
+Shows employees whose department doesn’t exist in department table.
+
+# 2. MATHEMATICAL FUNCTIONS
+# 2.1 ABS()
+```python
+df.select("name", abs(col("salary") - 50000).alias("abs_diff")).show(5)
+
+
+Output:
+
+|name |abs_diff|
+|Aarav|5000.75 |
+|Isha |10000.2 |
+|Rohan|2000.6  |
+|Meera|2000.4  |
+|Arjun|25000.0 |
+
+```
+# Explanation:
+Returns the absolute (positive) value.
+
+# 2.2 CEIL()
+```python
+df.select("name", ceil("salary").alias("ceil_salary")).show(5)
+
+
+Output:
+
+|Aarav|45001|
+|Isha |60001|
+|Rohan|52001|
+|Meera|48001|
+|Arjun|75000|
+
+```
+# Explanation:
+Rounds up to the next integer.
+
+# 2.3 FLOOR()
+```python
+df.select("name", floor("salary").alias("floor_salary")).show(5)
+
+
+Output:
+
+|Aarav|45000|
+|Isha |60000|
+|Rohan|52000|
+|Meera|48000|
+|Arjun|75000|
+```
+
+# Explanation:
+Rounds down to the nearest integer.
+
+# 2.4 EXP()
+```python
+df.select("name", exp(lit(1)).alias("e")).limit(1).show()
+
+
+Output:
+
+|name|e     |
+|Aarav|2.71828|
+
+```
+# Explanation:
+Exponential function e^x. Common for scientific calculations.
+
+# 2.5 LOG()
+```python
+df.select("name", log(10, "salary").alias("log_salary")).show(3)
+
+
+Output:
+
+|Aarav|4.653|
+|Isha |4.778|
+|Rohan|4.716|
+
+```
+# Explanation:
+Computes logarithm (base 10 here).
+
+# 2.6 POWER()
+```python
+df.select("name", power("salary", 2).alias("power2")).show(3)
+
+
+Output:
+
+|Aarav|2025068.56|
+|Isha |3600024.04|
+|Rohan|2706249.36|
+
+```
+# Explanation:
+Raises value to the given power.
+
+# 2.7 SQRT()
+```python
+df.select("name", sqrt("salary").alias("root_salary")).show(3)
+
+
+Output:
+
+|Aarav|212.12|
+|Isha |244.95|
+|Rohan|228.00|
+
+```
+# Explanation:
+Returns square root.
+
+# 3. CONVERSION FUNCTIONS
+# 3.1 CAST()
+```python
+df.select("name", col("salary").cast("int").alias("salary_int")).show(5)
+
+
+Output:
+
+|Aarav|45000|
+|Isha |60000|
+|Rohan|52000|
+|Meera|48000|
+|Arjun|75000|
+
+```
+# Explanation:
+Converts column data type (float → int).
+
+# 4. WINDOW FUNCTIONS
+```python
+from pyspark.sql.window import Window
+windowSpec = Window.partitionBy("dept_id").orderBy(col("salary").desc())
+```
+# 4.1 ROW_NUMBER()
+```python
+df.withColumn("row_num", row_number().over(windowSpec)).show(5)
+
+
+Output:
+
+|dept_id|name |salary |row_num|
+|101    |Rohan|52000.6|1|
+|101    |Priya|50000.0|2|
+|101    |Aarav|45000.75|3|
+...
+```
+
+# Explanation:
+Gives unique sequential number per department.
+
+# 4.2 RANK()
+```python
+df.withColumn("rank", rank().over(windowSpec)).show(5)
+
+
+Output:
+
+|dept_id|name |salary |rank|
+|101    |Rohan|52000.6|1|
+|101    |Priya|50000.0|2|
+|101    |Aarav|45000.75|3|
+
+```
+# Explanation:
+Gives ranking with gaps for ties.
+
+# 4.3 DENSE_RANK()
+```python
+df.withColumn("dense_rank", dense_rank().over(windowSpec)).show(5)
+
+```
+# Explanation:
+Similar to RANK, but without gaps for ties.
+
+# 4.4 LEAD()
+```python
+df.withColumn("next_salary", lead("salary").over(windowSpec)).show(5)
+
+
+Output:
+
+|dept_id|name |salary |next_salary|
+|101|Rohan|52000.6|50000.0|
+|101|Priya|50000.0|45000.75|
+|101|Aarav|45000.75|null|
+```
+
+# Explanation:
+Shows next row value within partition.
+
+# 4.5 LAG()
+```python
+df.withColumn("prev_salary", lag("salary").over(windowSpec)).show(5)
+
+
+Output:
+
+|dept_id|name |salary |prev_salary|
+|101|Rohan|52000.6|null|
+|101|Priya|50000.0|52000.6|
+|101|Aarav|45000.75|50000.0|
+
+```
+# Explanation:
+Shows previous row value within partition.
+
+# 5. ARRAY FUNCTIONS
+```python
+from pyspark.sql.functions import array, array_contains, size, array_position, array_remove
+```
+# 5.1 ARRAY()
+```python
+df.select("name", array("emp_id", "salary").alias("emp_array")).show(3)
+
+
+Output:
+
+|Aarav|[1,45000.75]|
+|Isha |[2,60000.2]|
+|Rohan|[3,52000.6]|
+
+```
+# Explanation:
+Creates an array column from given columns.
+
+# 5.2 ARRAY_CONTAINS()
+```python
+df.withColumn("arr", array(lit(101), lit(102), lit(103))) \
+      .withColumn("check", array_contains(col("arr"), col("dept_id"))).show(3)
+
+
+Output:
+
+|Aarav|101|[101,102,103]|true|
+|Isha |102|[101,102,103]|true|
+|Rohan|101|[101,102,103]|true|
+````
+
+# Explanation:
+Checks if array contains value.
+
+# 5.3 ARRAY_LENGTH()
+```python
+df.withColumn("arr", array("emp_id", "dept_id", "salary")) \
+      .withColumn("len", size("arr")).show(3)
+
+
+Output:
+
+|Aarav|[1,101,45000.75]|3|
+```
+
+# Explanation:
+Returns size of array.
+
+# 5.4 ARRAY_POSITION()
+```python
+df.withColumn("arr", array(lit(101), lit(102), lit(103))) \
+      .withColumn("pos", array_position(col("arr"), col("dept_id"))).show(3)
+
+
+Output:
+
+|Aarav|101|[101,102,103]|1|
+|Isha |102|[101,102,103]|2|
+|Rohan|101|[101,102,103]|1|
+
+```
+# Explanation:
+Returns position (1-based index) of element in array.
+
+# 5.5 ARRAY_REMOVE()
+```python
+df.withColumn("arr", array(lit(101), lit(102), lit(103), lit(101))) \
+      .withColumn("new_arr", array_remove(col("arr"), lit(101))).show(3)
+
+
+Output:
+
+|Aarav|[101,102,103,101]|[102,103]|
+
+```
+# Explanation:
+Removes all occurrences of a specific element from array.
