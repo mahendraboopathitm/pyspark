@@ -1758,3 +1758,196 @@ Output:
 ```
 # Explanation:
 Removes all occurrences of a specific element from array.
+# day 6 documentation
+
+
+## Explode Array and Map Functions
+
+PySpark provides functions to transform complex data types (arrays, maps) into multiple rows.
+
+###  `explode()`
+
+`explode()` transforms each element in an array or map into a separate row.
+
+**Code Example:**
+```python
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import explode
+
+spark = SparkSession.builder.appName("ExplodeExample").getOrCreate()
+
+data = [(1, ["apple", "banana"]), (2, ["orange", "grapes"])]
+df = spark.createDataFrame(data, ["id", "fruits"])
+
+df_exploded = df.select("id", explode("fruits").alias("fruit"))
+df_exploded.show()
+Output:
+
+diff
+Copy code
++---+------+
+| id| fruit|
++---+------+
+|  1| apple|
+|  1|banana|
+|  2|orange|
+|  2|grapes|
++---+------+
+```
+# explode_outer()
+explode_outer() is similar to explode(), but preserves null values instead of dropping them.
+
+Code Example:
+
+```python
+
+data = [(1, ["apple", "banana"]), (2, None)]
+df = spark.createDataFrame(data, ["id", "fruits"])
+
+df_exploded_outer = df.select("id", explode_outer("fruits").alias("fruit"))
+df_exploded_outer.show()
+Output:
+
+sql
+Copy code
++---+------+
+| id| fruit|
++---+------+
+|  1| apple|
+|  1|banana|
+|  2|  null|
++---+------+
+```
+# posexplode_outer()
+posexplode_outer() returns both the position (index) and value of each element in the array, including nulls.
+
+Code Example:
+
+```python
+
+from pyspark.sql.functions import posexplode_outer
+
+data = [(1, ["apple", "banana"]), (2, None)]
+df = spark.createDataFrame(data, ["id", "fruits"])
+
+df_pos_exploded = df.select("id", posexplode_outer("fruits").alias("pos", "fruit"))
+df_pos_exploded.show()
+Output:
+
+sql
+Copy code
++---+---+------+
+| id|pos| fruit|
++---+---+------+
+|  1|  0| apple|
+|  1|  1|banana|
+|  2|null|  null|
++---+---+------+
+```
+# User Defined Functions (UDF)
+UDFs allow you to define custom transformations for PySpark DataFrames.
+
+Code Example:
+
+```python
+Copy code
+from pyspark.sql.functions import udf
+from pyspark.sql.types import StringType
+
+def upper_case(name):
+    return name.upper()
+
+upper_udf = udf(upper_case, StringType())
+
+data = [(1, "alice"), (2, "bob")]
+df = spark.createDataFrame(data, ["id", "name"])
+
+df_with_udf = df.withColumn("name_upper", upper_udf("name"))
+df_with_udf.show()
+Output:
+
+pgsql
+Copy code
++---+-----+----------+
+| id| name|name_upper|
++---+-----+----------+
+|  1|alice|     ALICE|
+|  2|  bob|       BOB|
++---+-----+----------+
+```
+# Different File Formats with Schema
+PySpark allows defining schemas explicitly for structured data. This helps maintain consistent data types and improves performance.
+
+# Schema Definition
+You can define a schema using StructType and StructField.
+
+# StructType
+StructType represents the structure of a DataFrame.
+
+# StructField
+StructField defines individual columns, their data type, and nullability.
+
+# DataType
+DataType specifies the type of each column (StringType, IntegerType, etc.).
+
+Code Example:
+
+```python
+
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType
+
+schema = StructType([
+    StructField("id", IntegerType(), True),
+    StructField("name", StringType(), True),
+    StructField("age", IntegerType(), True)
+])
+```
+# Reading Different File Formats with Schema
+PySpark supports reading CSV, JSON, and Parquet files with predefined schemas.
+
+# Reading CSV with Schema
+Code Example:
+
+```python
+
+df_csv = spark.read.csv("data.csv", header=True, schema=schema)
+df_csv.show()
+Output (Example CSV):
+
+pgsql
+Copy code
++---+-----+---+
+| id| name|age|
++---+-----+---+
+|  1|Alice| 25|
+|  2|  Bob| 30|
++---+-----+---+
+```
+## Reading Parquet
+Parquet files are optimized for big data processing.
+
+Code Example:
+
+```python
+
+df_parquet = spark.read.schema(schema).parquet("data.parquet")
+df_parquet.show()
+```
+# Reading JSON with Schema
+Code Example:
+
+```python
+Copy code
+df_json = spark.read.json("data.json", schema=schema)
+df_json.show()
+Output (Example JSON):
+
+pgsql
+Copy code
++---+-----+---+
+| id| name|age|
++---+-----+---+
+|  1|Alice| 25|
+|  2|  Bob| 30|
++---+-----+---+
+```
