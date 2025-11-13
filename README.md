@@ -1951,3 +1951,303 @@ Copy code
 |  2|  Bob| 30|
 +---+-----+---+
 ```
+# day 7 documentation
+## 1. Writing Different File Formats with Schema
+
+### 🔹 Definition
+PySpark allows us to write DataFrames to multiple formats such as **CSV**, **Parquet**, and **JSON**.  
+Defining a schema ensures **data consistency** and **avoids Spark’s automatic schema inference**, which can be slower or inaccurate.
+
+---
+
+### 1.1 Write DataFrame to CSV with Schema
+
+####  Example Code
+```python
+from pyspark.sql import SparkSession
+from pyspark.sql.types import StructType, StructField, IntegerType, StringType, DoubleType
+
+spark = SparkSession.builder.appName("WriteCSVExample").getOrCreate()
+```
+# Define schema
+```python
+schema = StructType([
+    StructField("emp_id", IntegerType(), True),
+    StructField("emp_name", StringType(), True),
+    StructField("salary", DoubleType(), True)
+])
+```
+# Create DataFrame
+```python
+data = [(1, "Aarav", 50000.0), (2, "Isha", 60000.0), (3, "Rohan", 55000.0)]
+df = spark.createDataFrame(data, schema)
+```
+# Write to CSV
+```
+df.write.mode("overwrite").option("header", True).csv("output/employee_csv")
+```
+### Output Files
+bash
+```python
+output/employee_csv/part-0000.csv
+```
+### Content Example:
+```python
+emp_id,emp_name,salary
+1,Aarav,50000.0
+2,Isha,60000.0
+3,Rohan,55000.0
+```
+💡 Why Use
+Portable and easy to read.
+
+Ideal for sharing datasets across tools like Excel or Python Pandas.
+
+# Write DataFrame to Parquet
+## Example Code
+```python
+
+# Write to Parquet format
+df.write.mode("overwrite").parquet("output/employee_parquet")
+```
+# Read the Parquet file
+```python
+parquet_df = spark.read.parquet("output/employee_parquet")
+parquet_df.show()
+```
+### Output
++------+--------+-------+
+|emp_id|emp_name|salary |
++------+--------+-------+
+|1     |Aarav   |50000.0|
+|2     |Isha    |60000.0|
+|3     |Rohan   |55000.0|
++------+--------+-------+
+```
+💡 Why Use
+Parquet is columnar → faster read/write and smaller storage size.
+
+Great for big data and analytics workloads.
+
+# Write DataFrame to JSON with Schema
+# Example Code
+```python
+
+# Write DataFrame as JSON
+df.write.mode("overwrite").json("output/employee_json")
+```
+# Read JSON
+```python
+json_df = spark.read.json("output/employee_json")
+json_df.show()
+```
+📊 Output
+```python
+
++------+--------+-------+
+|emp_id|emp_name|salary |
++------+--------+-------+
+|1     |Aarav   |50000.0|
+|2     |Isha    |60000.0|
+|3     |Rohan   |55000.0|
++------+--------+-------+
+```
+# Why Use
+JSON is human-readable and widely used for API communication.
+
+Flexible and self-describing structure.
+
+## Slowly Changing Dimensions (SCD)
+# Definition
+SCDs manage historical changes in dimension tables (e.g., Employee, Customer).
+They ensure that when data changes over time, we retain previous versions or update appropriately.
+
+# Type 1 – Overwrite Old Data
+## Definition
+Type 1 replaces old data with the new value — no history is kept.
+
+## Example Code
+```python
+
+from pyspark.sql import Row
+```
+# Existing Dimension Table
+```python
+dim_df = spark.createDataFrame([
+    Row(emp_id=1, name="Aarav", dept="Sales"),
+    Row(emp_id=2, name="Isha", dept="IT")
+])
+```
+# New incoming data
+```python
+update_df = spark.createDataFrame([
+    Row(emp_id=2, name="Isha", dept="HR")  # Department changed
+])
+```
+# Type 1 SCD - Overwrite existing record
+```python
+merged_df = dim_df.alias("d").join(update_df.alias("u"), "emp_id", "left") \
+    .selectExpr("coalesce(u.emp_id, d.emp_id) as emp_id",
+                "coalesce(u.name, d.name) as name",
+                "coalesce(u.dept, d.dept) as dept")
+
+merged_df.show()
+```
+### Output
+```pgsql
+
++------+-----+-----+
+|emp_id|name |dept |
++------+-----+-----+
+|1     |Aarav|Sales|
+|2     |Isha |HR   |
++------+-----+-----+
+```
+💡 Why Use
+Simple and fast.
+
+Used when no historical tracking is needed.
+
+# Type 2 – Preserve History
+## Definition
+Type 2 keeps historical data by adding start_date, end_date, and current_flag columns.
+
+# Example Code
+```python
+
+from pyspark.sql.functions import current_date, lit
+```
+# Existing dimension table
+```python
+dim_df = spark.createDataFrame([
+    (1, "Aarav", "Sales", "2020-01-01", None, True),
+    (2, "Isha", "IT", "2020-01-01", None, True)
+], ["emp_id", "name", "dept", "start_date", "end_date", "is_current"])
+```
+# Incoming update
+```python
+update_df = spark.createDataFrame([
+    (2, "Isha", "HR")  # changed department
+], ["emp_id", "name", "dept"])
+```
+# Mark old record as not current
+```python
+dim_updated = dim_df.withColumn("end_date", when(dim_df.emp_id == 2, current_date())) \
+                    .withColumn("is_current", when(dim_df.emp_id == 2, lit(False)).otherwise(dim_df.is_current))
+```
+# Add new record
+```python
+new_record = update_df.withColumn("start_date", current_date()) \
+                      .withColumn("end_date", lit(None)) \
+                      .withColumn("is_current", lit(True))
+
+final_df = dim_updated.union(new_record)
+final_df.show()
+```
+### Output
+pgsql
+
++------+-----+-----+----------+----------+-----------+
+|emp_id|name |dept |start_date|end_date  |is_current |
++------+-----+-----+----------+----------+-----------+
+|1     |Aarav|Sales|2020-01-01|null      |true       |
+|2     |Isha |IT   |2020-01-01|2025-11-13|false      |
+|2     |Isha |HR   |2025-11-13|null      |true       |
++------+-----+-----+----------+----------+-----------+
+```
+💡 Why Use
+Preserves full change history.
+
+Essential for auditing and data warehousing.
+
+# Type 3 – Track Limited Changes
+## Definition
+Type 3 keeps previous and current values in the same row (no extra history rows).
+
+ Example Code
+```python
+
+dim_df = spark.createDataFrame([
+    (1, "Aarav", "Sales", None),
+    (2, "Isha", "IT", None)
+], ["emp_id", "name", "current_dept", "previous_dept"])
+
+update_df = spark.createDataFrame([
+    (2, "Isha", "HR")
+], ["emp_id", "name", "new_dept"])
+```
+# Update existing record
+```python
+from pyspark.sql.functions import when, col
+
+final_df = dim_df.join(update_df, "emp_id", "left") \
+    .withColumn("previous_dept", when(col("new_dept").isNotNull(), col("current_dept")).otherwise(col("previous_dept"))) \
+    .withColumn("current_dept", when(col("new_dept").isNotNull(), col("new_dept")).otherwise(col("current_dept"))) \
+    .drop("new_dept")
+
+final_df.show()
+```
+ Output
+```pgsql
+
++------+-----+------------+-------------+
+|emp_id|name |current_dept|previous_dept|
++------+-----+------------+-------------+
+|1     |Aarav|Sales       |null         |
+|2     |Isha |HR          |IT           |
++------+-----+------------+-------------+
+```
+ Why Use
+Keeps limited change history (one previous version).
+
+Useful when only the last change matters.
+
+# Write Methods
+## Overwrite
+ Definition
+Completely replaces existing data in the output path.
+
+```python
+
+df.write.mode("overwrite").parquet("output/employees")
+ Use when: You want to refresh data entirely.
+```
+# Overwrite Partition
+##  Definition
+Overwrites only a specific partition instead of the entire dataset.
+
+```python
+
+df.write.mode("overwrite").partitionBy("dept").parquet("output/employees_partitioned")
+```
+ Use when: You want to update one department without rewriting all others.
+
+## Upsert (Merge)
+## Definition
+Upsert = Update existing + Insert new records.
+Available with Delta Lake.
+
+```python
+
+from delta.tables import DeltaTable
+
+deltaTable = DeltaTable.forPath(spark, "output/delta/employees")
+
+deltaTable.alias("t").merge(
+    df.alias("s"),
+    "t.emp_id = s.emp_id"
+).whenMatchedUpdateAll() \
+ .whenNotMatchedInsertAll() \
+ .execute()
+ Use when: You need SCD or incremental data updates.
+```
+# Append
+## Definition
+Adds new records without modifying or deleting existing data.
+
+```python
+
+df.write.mode("append").parquet("output/employee_parquet")
+ Use when: You’re adding daily or incremental data.
+
+```
