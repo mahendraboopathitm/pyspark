@@ -2146,7 +2146,7 @@ final_df.show()
 ```
 ### Output
 pgsql
-
+```
 +------+-----+-----+----------+----------+-----------+
 |emp_id|name |dept |start_date|end_date  |is_current |
 +------+-----+-----+----------+----------+-----------+
@@ -2155,16 +2155,17 @@ pgsql
 |2     |Isha |HR   |2025-11-13|null      |true       |
 +------+-----+-----+----------+----------+-----------+
 ```
+
 💡 Why Use
 Preserves full change history.
 
 Essential for auditing and data warehousing.
-
+```
 # Type 3 – Track Limited Changes
 ## Definition
 Type 3 keeps previous and current values in the same row (no extra history rows).
 
- Example Code
+Example Code
 ```python
 
 dim_df = spark.createDataFrame([
@@ -2188,7 +2189,7 @@ final_df = dim_df.join(update_df, "emp_id", "left") \
 final_df.show()
 ```
  Output
-```pgsql
+```
 
 +------+-----+------------+-------------+
 |emp_id|name |current_dept|previous_dept|
@@ -2222,25 +2223,7 @@ df.write.mode("overwrite").partitionBy("dept").parquet("output/employees_partiti
 ```
  Use when: You want to update one department without rewriting all others.
 
-## Upsert (Merge)
-## Definition
-Upsert = Update existing + Insert new records.
-Available with Delta Lake.
 
-```python
-
-from delta.tables import DeltaTable
-
-deltaTable = DeltaTable.forPath(spark, "output/delta/employees")
-
-deltaTable.alias("t").merge(
-    df.alias("s"),
-    "t.emp_id = s.emp_id"
-).whenMatchedUpdateAll() \
- .whenNotMatchedInsertAll() \
- .execute()
- Use when: You need SCD or incremental data updates.
-```
 # Append
 ## Definition
 Adds new records without modifying or deleting existing data.
