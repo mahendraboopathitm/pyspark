@@ -2234,3 +2234,197 @@ df.write.mode("append").parquet("output/employee_parquet")
  Use when: You’re adding daily or incremental data.
 
 ```
+#  Tables & Load Types
+
+## 1. Tables
+
+This section covers **Managed Tables** and **External Tables**, their differences, behaviors, advantages, and practical examples.
+
+---
+
+## 1.1 Managed Table
+
+### **Definition**
+
+A table where the system (Hive/Databricks/Spark) manages both **data** and **metadata**.
+
+### **Key Characteristics**
+
+* Data is stored in the system's default warehouse directory.
+* Dropping the table **deletes both metadata and data files**.
+* Suitable for internal analytical workloads.
+
+### **Example**
+
+```sql
+CREATE TABLE sales_managed (
+  order_id STRING,
+  amount DOUBLE,
+  order_date DATE
+) USING parquet;
+```
+
+---
+
+## 1.2 External Table
+
+### **Definition**
+
+A table where **metadata** is stored in the metastore but **data** resides in a location defined by the user.
+
+### **Key Characteristics**
+
+* Dropping the table deletes **only metadata**, NOT the data.
+* Ideal for shared datasets, landing zones, and raw data.
+
+### **Example**
+
+```sql
+CREATE TABLE sales_external (
+  order_id STRING,
+  amount DOUBLE,
+  order_date DATE
+) USING parquet
+LOCATION 's3://company-raw/sales/';
+```
+
+---
+
+# 2. Types of Loads
+
+Data load mechanisms used in ETL/ELT pipelines.
+
+---
+
+## 2.1 Full Load
+
+### **Definition**
+
+Loads the **entire dataset** from source to target.
+
+### **When to Use**
+
+* Small datasets
+* Backfills
+* When source does not support incremental tracking
+
+### **Process**
+
+1. TRUNCATE target table.
+2. INSERT all data from source.
+
+### **Example**
+
+```sql
+TRUNCATE TABLE dw.countries;
+INSERT INTO dw.countries
+SELECT * FROM source.countries;
+```
+
+---
+
+## 2.2 Incremental Load
+
+### **Definition**
+
+Loads only the **new** or **updated** records since the previous load.
+
+### **Common Approaches**
+
+* Timestamp-based (`updated_at`)
+* High watermark
+* Auto-increment ID
+* MERGE (upsert)
+
+### **Example (Timestamp Based)**
+
+```sql
+MERGE INTO dw.orders t
+USING staged.orders_inc s
+ON t.order_id = s.order_id
+WHEN MATCHED THEN UPDATE SET t.amount = s.amount
+WHEN NOT MATCHED THEN INSERT *;
+```
+
+---
+
+## 2.3 Snapshot Loads
+
+Three types of snapshots that capture data state over time.
+
+### **Full Snapshot**
+
+* Entire table copied at regular intervals.
+* Used for historical audits.
+
+### **Incremental Snapshot**
+
+* Only changed rows are captured.
+* Saves space while keeping change history.
+
+### **Rolling Snapshot**
+
+* Maintains only a fixed window (e.g., last 7 days) of snapshots.
+
+### **Use Cases**
+
+* Time-series analytics
+* Compliance reporting
+* Troubleshooting historical changes
+
+---
+
+## 2.4 Change Data Capture (CDC)
+
+### **Definition**
+
+Captures **row-level changes** (INSERT, UPDATE, DELETE) from the source.
+
+### **Techniques**
+
+* Log-Based CDC (Best) — reads DB transaction logs
+* Trigger-based
+* Timestamp polling
+* Snapshot diff
+
+### **Benefits**
+
+* Handles deletes accurately
+* Preserves order of events
+* Low latency data replication
+
+### **CDC Event Example**
+
+```json
+{
+  "op": "u",
+  "table": "orders",
+  "key": {"order_id": 123},
+  "after": {"amount": 500, "status": "shipped"}
+}
+```
+
+### **Applying CDC to Target Table**
+
+```sql
+MERGE INTO dw.orders t
+USING staging_event s
+ON t.order_id = s.order_id
+WHEN MATCHED THEN UPDATE SET t.status = s.status
+WHEN NOT MATCHED THEN INSERT *;
+```
+
+---
+
+# Summary Table
+
+| Load Type   | What It Does                 | Best For                | Handles Deletes?       |
+| ----------- | ---------------------------- | ----------------------- | ---------------------- |
+| Full Load   | Reloads everything           | Small tables, backfills | No                     |
+| Incremental | Loads new/updated rows       | Large tables            | Sometimes (if flagged) |
+| Snapshot    | Captures point-in-time state | Historical analysis     | N/A                    |
+| CDC         | Streams row-level changes    | Real-time replication   | Yes                    |
+
+---
+
+
